@@ -1,4 +1,4 @@
--- v1rusxeno Helper GUI with Aimbot, ESP, Speed Boost
+-- v1rusxeno Helper GUI with Aimbot, ESP, Speed Boost and TeamCheck Button
 -- Run this LocalScript in the game (e.g. with executor)
 
 local Players = game:GetService("Players")
@@ -16,8 +16,8 @@ ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 -- Main Frame (draggable)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 280, 0, 180)
-MainFrame.Position = UDim2.new(0.5, -140, 0.5, -90)
+MainFrame.Size = UDim2.new(0, 280, 0, 220)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -110)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -55,11 +55,12 @@ end
 -- Create Buttons
 local AimbotButton = createButton("Aimbot: OFF", UDim2.new(0, 10, 0, 40))
 local ESPButton = createButton("ESP: OFF", UDim2.new(0, 150, 0, 40))
+local TeamCheckButton = createButton("TeamCheck: OFF", UDim2.new(0, 10, 0, 90))
 
 -- Speed boost label
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Size = UDim2.new(0, 260, 0, 20)
-SpeedLabel.Position = UDim2.new(0, 10, 0, 95)
+SpeedLabel.Position = UDim2.new(0, 10, 0, 135)
 SpeedLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 SpeedLabel.BorderSizePixel = 0
 SpeedLabel.Text = "CFrame Speed Boost: 0"
@@ -72,7 +73,7 @@ SpeedLabel.Parent = MainFrame
 -- Speed boost slider frame
 local SliderFrame = Instance.new("Frame")
 SliderFrame.Size = UDim2.new(0, 260, 0, 15)
-SliderFrame.Position = UDim2.new(0, 10, 0, 120)
+SliderFrame.Position = UDim2.new(0, 10, 0, 160)
 SliderFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 SliderFrame.BorderSizePixel = 0
 SliderFrame.Parent = MainFrame
@@ -91,6 +92,7 @@ SliderHandle.Parent = SliderFrame
 local aimbotEnabled = false
 local espEnabled = false
 local speedBoostValue = 0
+local teamCheckEnabled = false
 
 -- Aimbot Implementation
 local mouse = LocalPlayer:GetMouse()
@@ -102,14 +104,17 @@ local function getClosestTarget()
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                if onScreen then
-                    local dist = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
-                    if dist < shortestDistance then
-                        shortestDistance = dist
-                        closestPlayer = player
+            -- Apply team check only if enabled
+            if not teamCheckEnabled or (LocalPlayer.Team ~= player.Team) then
+                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                        if dist < shortestDistance then
+                            shortestDistance = dist
+                            closestPlayer = player
+                        end
                     end
                 end
             end
@@ -230,6 +235,15 @@ ESPButton.MouseButton1Click:Connect(function()
         ESPButton.Text = "ESP: OFF"
         -- Remove boxes when turned off
         updateESP()
+    end
+end)
+
+TeamCheckButton.MouseButton1Click:Connect(function()
+    teamCheckEnabled = not teamCheckEnabled
+    if teamCheckEnabled then
+        TeamCheckButton.Text = "TeamCheck: ON"
+    else
+        TeamCheckButton.Text = "TeamCheck: OFF"
     end
 end)
 
