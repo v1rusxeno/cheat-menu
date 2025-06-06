@@ -1,9 +1,8 @@
 -- v1rusxeno Helper GUI with Aimbot, ESP, Speed Boost and TeamCheck Button
--- Run this LocalScript in the game (e.g. with executor)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UserInputService = game:GetService("UserInputService") -- fixed name
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -93,6 +92,7 @@ local aimbotEnabled = false
 local espEnabled = false
 local speedBoostValue = 0
 local teamCheckEnabled = false
+local lockedTarget = nil -- Store current locked target
 
 -- Aimbot Implementation
 local mouse = LocalPlayer:GetMouse()
@@ -104,7 +104,6 @@ local function getClosestTarget()
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-            -- Apply team check only if enabled
             if not teamCheckEnabled or (LocalPlayer.Team ~= player.Team) then
                 local hrp = player.Character:FindFirstChild("HumanoidRootPart")
                 if hrp then
@@ -136,6 +135,7 @@ end)
 UserInputService.InputEnded:Connect(function(input, gameProcessedEvent)
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
         rightMouseDown = false
+        lockedTarget = nil -- Release target lock on mouse button release
     end
 end)
 
@@ -155,7 +155,6 @@ local function createBox(part)
 end
 
 local function updateESP()
-    -- Clear existing
     for p, adorn in pairs(boxAdorns) do
         if adorn and adorn.Parent then
             adorn:Destroy()
@@ -180,7 +179,6 @@ end
 local speedRunConn = nil
 
 local function applySpeedBoost(value)
-    -- Disconnect previous connection if any
     if speedRunConn then
         speedRunConn:Disconnect()
         speedRunConn = nil
@@ -208,22 +206,20 @@ local function applySpeedBoost(value)
         end
 
         if moveDir.Magnitude > 0 then
-            -- Normalize movement and apply speed boost
             local speedVector = moveDir.Unit * value
-            local newCFrame = hrp.CFrame + speedVector
-            hrp.CFrame = newCFrame
+            hrp.CFrame = hrp.CFrame + speedVector
         end
     end)
 end
 
 -- Button click handlers
-
 AimbotButton.MouseButton1Click:Connect(function()
     aimbotEnabled = not aimbotEnabled
     if aimbotEnabled then
         AimbotButton.Text = "Aimbot: ON"
     else
         AimbotButton.Text = "Aimbot: OFF"
+        lockedTarget = nil
     end
 end)
 
@@ -233,7 +229,6 @@ ESPButton.MouseButton1Click:Connect(function()
         ESPButton.Text = "ESP: ON"
     else
         ESPButton.Text = "ESP: OFF"
-        -- Remove boxes when turned off
         updateESP()
     end
 end)
@@ -255,9 +250,9 @@ local function updateSliderPosition(input)
     local xPos = math.clamp(input.Position.X - SliderFrame.AbsolutePosition.X, 0, SliderFrame.AbsoluteSize.X)
     local percent = xPos / SliderFrame.AbsoluteSize.X
     SliderHandle.Position = UDim2.new(percent, -SliderHandle.AbsoluteSize.X/2, 0, 0)
-    speedBoostValue = math.floor(percent * 100) -- max speed boost 100
+    speedBoostValue = math.floor(percent * 100)
     SpeedLabel.Text = ("CFrame Speed Boost: %d"):format(speedBoostValue)
-    applySpeedBoost(speedBoostValue * 0.1) -- scale down to sensible value
+    applySpeedBoost(speedBoostValue * 0.1)
 end
 
 SliderHandle.InputBegan:Connect(function(input)
@@ -285,13 +280,21 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Main aimbot loop
+-- Main aimbot loop with snap aiming (no smoothing)
 runService.RenderStepped:Connect(function()
     if aimbotEnabled and rightMouseDown then
-        local target = getClosestTarget()
-        if target and target.Character and target.Character:FindFirstChild("Head") then
-            local headPos = target.Character.Head.Position
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, headPos)
+        if not lockedTarget then
+            lockedTarget = getClosestTarget()
+        end
+
+        if lockedTarget and lockedTarget.Character and lockedTarget.Character:FindFirstChild("Head") then
+            local headPos = lockedTarget.Character.Head.Position
+            local camPos = Camera.CFrame.Position
+            local targetCFrame = CFrame.new(camPos, headPos)
+            -- Snap directly to the target (smoothing = 0)
+            Camera.CFrame = targetCFrame
+        else
+            lockedTarget = nil
         end
     end
 
