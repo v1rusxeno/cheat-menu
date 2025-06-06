@@ -1,8 +1,8 @@
--- v1rusxeno Helper GUI with Aimbot, ESP, Speed Boost and TeamCheck Button
+-- v1rusxeno Helper GUI with Aimbot, ESP, Speed Boost, TeamCheck, and Aimbot Key Changer
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService") -- fixed name
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -15,8 +15,8 @@ ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 -- Main Frame (draggable)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 280, 0, 220)
-MainFrame.Position = UDim2.new(0.5, -140, 0.5, -110)
+MainFrame.Size = UDim2.new(0, 280, 0, 260)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -130)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
@@ -55,11 +55,12 @@ end
 local AimbotButton = createButton("Aimbot: OFF", UDim2.new(0, 10, 0, 40))
 local ESPButton = createButton("ESP: OFF", UDim2.new(0, 150, 0, 40))
 local TeamCheckButton = createButton("TeamCheck: OFF", UDim2.new(0, 10, 0, 90))
+local ChangeAimbotKeyButton = createButton("Change Aim Key", UDim2.new(0, 10, 0, 140))
 
 -- Speed boost label
 local SpeedLabel = Instance.new("TextLabel")
 SpeedLabel.Size = UDim2.new(0, 260, 0, 20)
-SpeedLabel.Position = UDim2.new(0, 10, 0, 135)
+SpeedLabel.Position = UDim2.new(0, 10, 0, 185)
 SpeedLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 SpeedLabel.BorderSizePixel = 0
 SpeedLabel.Text = "CFrame Speed Boost: 0"
@@ -72,7 +73,7 @@ SpeedLabel.Parent = MainFrame
 -- Speed boost slider frame
 local SliderFrame = Instance.new("Frame")
 SliderFrame.Size = UDim2.new(0, 260, 0, 15)
-SliderFrame.Position = UDim2.new(0, 10, 0, 160)
+SliderFrame.Position = UDim2.new(0, 10, 0, 210)
 SliderFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 SliderFrame.BorderSizePixel = 0
 SliderFrame.Parent = MainFrame
@@ -92,16 +93,15 @@ local aimbotEnabled = false
 local espEnabled = false
 local speedBoostValue = 0
 local teamCheckEnabled = false
-local lockedTarget = nil -- Store current locked target
+local lockedTarget = nil
+local listeningForKey = false
+local aimbotKey = Enum.UserInputType.MouseButton2
 
--- Aimbot Implementation
 local mouse = LocalPlayer:GetMouse()
-local runService = RunService
 
 local function getClosestTarget()
     local closestPlayer = nil
     local shortestDistance = math.huge
-
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
             if not teamCheckEnabled or (LocalPlayer.Team ~= player.Team) then
@@ -119,24 +119,36 @@ local function getClosestTarget()
             end
         end
     end
-
     return closestPlayer
 end
 
-local rightMouseDown = false
+local inputDown = {}
 
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
     if gameProcessedEvent then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        rightMouseDown = true
+    inputDown[input.UserInputType] = true
+
+    if aimbotEnabled and input.UserInputType == aimbotKey then
+        lockedTarget = getClosestTarget()
+    end
+
+    if listeningForKey and input.UserInputType == Enum.UserInputType.Keyboard then
+        aimbotKey = Enum.UserInputType.Keyboard
+        aimbotKeyCode = input.KeyCode
+        ChangeAimbotKeyButton.Text = "Aim Key: " .. tostring(aimbotKeyCode.Name)
+        listeningForKey = false
+    elseif listeningForKey and input.UserInputType ~= Enum.UserInputType.Keyboard then
+        aimbotKey = input.UserInputType
+        ChangeAimbotKeyButton.Text = "Aim Key: " .. tostring(aimbotKey.Name)
+        listeningForKey = false
     end
 end)
 
 UserInputService.InputEnded:Connect(function(input, gameProcessedEvent)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        rightMouseDown = false
-        lockedTarget = nil -- Release target lock on mouse button release
+    if input.UserInputType == aimbotKey then
+        lockedTarget = nil
     end
+    inputDown[input.UserInputType] = nil
 end)
 
 -- ESP Implementation
@@ -184,7 +196,7 @@ local function applySpeedBoost(value)
         speedRunConn = nil
     end
 
-    speedRunConn = runService.Stepped:Connect(function()
+    speedRunConn = RunService.Stepped:Connect(function()
         local char = LocalPlayer.Character
         if not char then return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
@@ -215,36 +227,29 @@ end
 -- Button click handlers
 AimbotButton.MouseButton1Click:Connect(function()
     aimbotEnabled = not aimbotEnabled
-    if aimbotEnabled then
-        AimbotButton.Text = "Aimbot: ON"
-    else
-        AimbotButton.Text = "Aimbot: OFF"
-        lockedTarget = nil
-    end
+    AimbotButton.Text = aimbotEnabled and "Aimbot: ON" or "Aimbot: OFF"
+    if not aimbotEnabled then lockedTarget = nil end
 end)
 
 ESPButton.MouseButton1Click:Connect(function()
     espEnabled = not espEnabled
-    if espEnabled then
-        ESPButton.Text = "ESP: ON"
-    else
-        ESPButton.Text = "ESP: OFF"
-        updateESP()
-    end
+    ESPButton.Text = espEnabled and "ESP: ON" or "ESP: OFF"
+    if not espEnabled then updateESP() end
 end)
 
 TeamCheckButton.MouseButton1Click:Connect(function()
     teamCheckEnabled = not teamCheckEnabled
-    if teamCheckEnabled then
-        TeamCheckButton.Text = "TeamCheck: ON"
-    else
-        TeamCheckButton.Text = "TeamCheck: OFF"
-    end
+    TeamCheckButton.Text = teamCheckEnabled and "TeamCheck: ON" or "TeamCheck: OFF"
+end)
+
+ChangeAimbotKeyButton.MouseButton1Click:Connect(function()
+    listeningForKey = true
+    ChangeAimbotKeyButton.Text = "Press any key..."
 end)
 
 -- Slider dragging to adjust speed boost
 local dragging = false
-local dragInput, dragStart, startPos
+local dragInput
 
 local function updateSliderPosition(input)
     local xPos = math.clamp(input.Position.X - SliderFrame.AbsolutePosition.X, 0, SliderFrame.AbsoluteSize.X)
@@ -258,8 +263,6 @@ end
 SliderHandle.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
-        dragStart = input.Position
-        startPos = SliderHandle.Position
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 dragging = false
@@ -280,18 +283,16 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Main aimbot loop with snap aiming (no smoothing)
-runService.RenderStepped:Connect(function()
-    if aimbotEnabled and rightMouseDown then
+-- Main loop
+RunService.RenderStepped:Connect(function()
+    if aimbotEnabled and inputDown[aimbotKey] then
         if not lockedTarget then
             lockedTarget = getClosestTarget()
         end
-
         if lockedTarget and lockedTarget.Character and lockedTarget.Character:FindFirstChild("Head") then
             local headPos = lockedTarget.Character.Head.Position
             local camPos = Camera.CFrame.Position
             local targetCFrame = CFrame.new(camPos, headPos)
-            -- Snap directly to the target (smoothing = 0)
             Camera.CFrame = targetCFrame
         else
             lockedTarget = nil
